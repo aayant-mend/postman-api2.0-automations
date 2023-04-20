@@ -1,0 +1,22 @@
+const loginRequest = {
+    url: pm.environment.get("baseUrl") + "/v2.0/login",
+    method: 'POST',
+    header: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    },
+    body: {
+        mode: 'raw',
+        raw: JSON.stringify({ email: pm.globals.get("myUserEmail"), orgToken: pm.environment.get("apiKey"), userKey: pm.environment.get("privUserKey")})
+    }
+};
+
+pm.test("Checking for 401 Response", ()=>{
+    if (pm.response.to.have.status(401)){
+        pm.sendRequest(loginRequest, (error, response) => {
+            console.log(error ? error : response.json());
+            var responseJSON = response.json();
+            pm.environment.set("bearerToken", responseJSON.retVal.jwtToken);
+        })
+    }
+});
