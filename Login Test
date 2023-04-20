@@ -1,0 +1,7 @@
+pm.test("Validating 201 OK", ()=>{
+    if (pm.response.to.have.status(201)){
+        var JSON_Response = JSON.parse(responseBody);
+        pm.environment.set("bearerToken", JSON_Response.retVal.jwtToken);
+        console.log("Set jwtToken to: " + pm.environment.get("bearerToken"));
+    }
+})
