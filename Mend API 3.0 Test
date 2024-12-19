@@ -1,0 +1,72 @@
+// Define the first request to login
+const loginRequest = {
+    url: pm.environment.get("baseUrl") + "/api/v3.0/login",
+    method: 'POST',
+    header: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    },
+    body: {
+        mode: 'raw',
+        raw: JSON.stringify({
+            email: pm.globals.get("myUserEmail"),
+            userKey: pm.environment.get("privUserKey")
+        })
+    }
+};
+
+// Define the second request for refreshing the token
+let refreshRequest = {
+    url: pm.environment.get("baseUrl") + "/api/v3.0/login/accessToken?orgUuid=" + pm.environment.get("orgUUID"),
+    method: 'POST',
+    header: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    },
+    body: {
+        mode: 'none'
+    }
+};
+
+// Check for 401 response and chain the requests
+pm.test("Checking for 401 Response", () => {
+    if (pm.response.code === 401) {
+        // Send the first request
+        pm.sendRequest(loginRequest, (error, loginResponse) => {
+            if (error) {
+                console.error("Error in login request:", error);
+                return;
+            }
+
+            // Parse the login response to extract the refresh token
+            const loginResponseJSON = loginResponse.json();
+            const refreshToken = loginResponseJSON.response && loginResponseJSON.response.refreshToken;
+            
+            if (refreshToken) {
+                // Set the `wss-refresh-token` header dynamically
+                refreshRequest.header['wss-refresh-token'] = refreshToken;
+
+                // Send the second request
+                pm.sendRequest(refreshRequest, (error, refreshResponse) => {
+                    if (error) {
+                        console.error("Error in refresh token request:", error);
+                        return;
+                    }
+
+                    // Parse the refresh token response and store the JWT token
+                    const refreshResponseJSON = refreshResponse.json();
+                    const jwtToken = refreshResponseJSON.response && refreshResponseJSON.response.jwtToken;
+
+                    if (jwtToken) {
+                        pm.environment.set("bearerToken", jwtToken);
+                        console.log("Bearer token set successfully:", jwtToken);
+                    } else {
+                        console.error("JWT token missing in refresh response:", refreshResponseJSON);
+                    }
+                });
+            } else {
+                console.error("Refresh token missing in login response:", loginResponseJSON);
+            }
+        });
+    }
+});
